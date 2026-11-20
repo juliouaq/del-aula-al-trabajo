@@ -1,0 +1,755 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Semáforo de prioridades</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Diseño: una columna de lectura alineada a la izquierda; barra fija con cronómetro y pestañas.
+   El único color fuerte es el del semáforo (rojo, ámbar, verde); el resto son neutros fríos con un acento azul petróleo. */
+:root{
+  --bg:#eef1f4; --surface:#ffffff; --surface-2:#e4e9ee; --ink:#14212b; --ink-2:#47596a; --line:#c9d3dc;
+  --accent:#145a73; --on-accent:#ffffff; --housing:#1a2630;
+  --rojo:#b3302a; --rojo-t:#f9e3e0; --ambar:#8f5f00; --ambar-t:#fbeecb; --verde:#1f6f46; --verde-t:#dcf0e4;
+  --lamp-r:#d64538; --lamp-a:#e8a317; --lamp-v:#34a56a;
+  --font-d:'Bricolage Grotesque',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-b:'Figtree',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f171d; --surface:#17222b; --surface-2:#22313c; --ink:#e8eef3; --ink-2:#9fb1bf; --line:#2d3f4c;
+    --accent:#5cc0de; --on-accent:#06222c; --housing:#0a1015;
+    --rojo:#ff9a8f; --rojo-t:#3b1f1c; --ambar:#f0c25c; --ambar-t:#3a3013; --verde:#72d6a0; --verde-t:#14301f;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f171d; --surface:#17222b; --surface-2:#22313c; --ink:#e8eef3; --ink-2:#9fb1bf; --line:#2d3f4c;
+  --accent:#5cc0de; --on-accent:#06222c; --housing:#0a1015;
+  --rojo:#ff9a8f; --rojo-t:#3b1f1c; --ambar:#f0c25c; --ambar-t:#3a3013; --verde:#72d6a0; --verde-t:#14301f;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.5 var(--font-b)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--surface)}
+h1,h2,h3{font-family:var(--font-d);margin:0;text-wrap:balance;line-height:1.15}
+h1{font-size:clamp(26px,5.4vw,38px);font-weight:800;letter-spacing:-.01em}
+h2{font-size:20px;font-weight:600}
+h3{font-size:17px;font-weight:600}
+p{margin:0}
+button{font-family:inherit}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.wrap{max-width:880px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+/* barra fija */
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--surface);border-bottom:1px solid var(--line)}
+.bar-in{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px;padding-block:10px 8px}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.sem{display:grid;gap:3px;padding:5px 4px;background:var(--housing);border-radius:7px;border:1px solid var(--line);flex:none}
+.sem i{width:9px;height:9px;border-radius:50%}
+.sem i:nth-child(1){background:var(--lamp-r)}.sem i:nth-child(2){background:var(--lamp-a)}.sem i:nth-child(3){background:var(--lamp-v)}
+.brand b{font:600 17px/1.15 var(--font-d);display:block}
+.brand small{display:block;color:var(--ink-2);font-size:12.5px}
+.clock{display:flex;align-items:center;gap:10px}
+.clock .ph{font-size:11.5px;color:var(--ink-2);text-transform:uppercase;letter-spacing:.08em;font-weight:600;display:block}
+.clock output{display:block;font:800 28px/1.05 var(--font-d);font-variant-numeric:tabular-nums;min-width:3.4ch}
+.clock small{display:block;font-size:12px;color:var(--ink-2);min-height:1.2em}
+.clock.warn output{color:var(--ambar)}.clock.done output{color:var(--rojo)}
+.clock .btns{display:flex;gap:6px}
+.prog{display:flex;gap:3px;height:5px}
+.prog>span{display:block;background:var(--surface-2);border-radius:3px;overflow:hidden}
+.prog i{display:block;height:100%;width:0;background:var(--accent)}
+.tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;padding-top:6px}
+.tab{appearance:none;border:0;background:none;color:var(--ink-2);padding:8px 2px 9px;font:600 14px/1.2 var(--font-b);border-bottom:3px solid transparent;cursor:pointer;display:grid;justify-items:start;text-align:left}
+.tab small{font-weight:500;font-size:11.5px}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+
+main.wrap{padding-block:24px 56px}
+.panel{display:grid;gap:18px}
+.panel>*{min-width:0}
+.eyebrow{font:600 12.5px var(--font-b);letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.lead{font-size:17px;color:var(--ink-2);max-width:62ch}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:grid;gap:12px;min-width:0}
+.lab{font-size:12.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-2);display:block;margin-bottom:4px}
+.mini{font-size:13.5px;color:var(--ink-2)}
+.note{background:var(--surface-2);border-radius:8px;padding:10px 12px;font-size:14.5px}
+ul.plain{margin:0;padding-left:20px;display:grid;gap:6px;max-width:64ch}
+
+/* controles */
+.btn{appearance:none;font:600 15px var(--font-b);padding:9px 16px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;min-height:42px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.ghost{background:transparent}
+.btn.danger{color:var(--rojo);border-color:var(--rojo)}
+.btn.sm{min-height:36px;padding:6px 12px;font-size:14px}
+.btn:disabled,.ic:disabled{opacity:.4;cursor:not-allowed}
+input[type=text],input[type=number],select,textarea{width:100%;font:16px/1.4 var(--font-b);color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:9px 11px}
+textarea{resize:vertical;min-height:72px}
+textarea[readonly]{background:var(--surface-2)}
+.fld{display:block;min-width:0}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.seg,.chips{display:flex;flex-wrap:wrap;gap:8px}
+.seg button,.chip{appearance:none;display:inline-flex;align-items:center;gap:7px;min-height:40px;padding:6px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font:600 14.5px var(--font-b);cursor:pointer}
+.seg button[aria-pressed="true"],.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.seg button.r::before,.seg button.a::before,.seg button.v::before{content:"";width:10px;height:10px;border-radius:50%;flex:none}
+.seg button.r::before{background:var(--lamp-r)}.seg button.a::before{background:var(--lamp-a)}.seg button.v::before{background:var(--lamp-v)}
+.seg button.r[aria-pressed="true"]{background:var(--rojo-t);border-color:var(--rojo);color:var(--rojo)}
+.seg button.a[aria-pressed="true"]{background:var(--ambar-t);border-color:var(--ambar);color:var(--ambar)}
+.seg button.v[aria-pressed="true"]{background:var(--verde-t);border-color:var(--verde);color:var(--verde)}
+.seg button:disabled{cursor:not-allowed;opacity:.75}
+.pill{display:inline-block;padding:1px 9px;border-radius:99px;font-size:12.5px;font-weight:700;background:var(--surface-2);color:var(--ink-2)}
+.pill.ok,.pill.v{background:var(--verde-t);color:var(--verde)}
+.pill.late,.pill.r{background:var(--rojo-t);color:var(--rojo)}
+.pill.over,.pill.a{background:var(--ambar-t);color:var(--ambar)}
+
+/* roles */
+.roles-in{display:flex;flex-wrap:wrap;align-items:center;gap:10px 24px}
+.roles-in b{font:600 18px var(--font-d)}
+.roles-in .btn{margin-left:auto}
+
+/* tareas */
+.tasks{display:grid;gap:14px}
+.task{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:grid;gap:12px;min-width:0}
+.task-h{display:flex;align-items:center;gap:12px}
+.pos{width:34px;height:34px;border-radius:50%;background:var(--ink);color:var(--bg);display:grid;place-items:center;font:800 17px var(--font-d);flex:none}
+.task-t{min-width:0}
+.task-t .lab{margin:0}
+.mv{margin-left:auto;display:flex;gap:6px;flex:none}
+.ic{appearance:none;width:40px;height:40px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font:700 18px var(--font-b);cursor:pointer}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px 16px;margin:0}
+.facts dt{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2);font-weight:600}
+.facts dd{margin:2px 0 0;font-size:15px}
+.ctrl{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+.task.locked{background:var(--surface-2)}
+
+/* matriz */
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px}
+.mx{display:grid;grid-template-columns:auto repeat(3,minmax(0,1fr));gap:4px;font-size:12.5px}
+.mx .h{color:var(--ink-2);font-weight:600;display:flex;align-items:center;justify-content:center;padding:2px 4px;text-align:center}
+.mx .c{min-height:54px;border-radius:6px;border:1px solid var(--line);display:flex;flex-wrap:wrap;gap:4px;align-content:center;justify-content:center;padding:4px}
+.c.t3{background:var(--rojo-t)}.c.t2{background:var(--ambar-t)}.c.t1{background:var(--verde-t)}
+.dot{width:28px;height:28px;border-radius:50%;background:var(--ink);color:var(--bg);display:grid;place-items:center;font:800 14px var(--font-d)}
+
+/* agenda */
+.tl{padding:0 14px 24px}
+.tl-track{position:relative;height:40px;background:var(--surface-2);border-radius:6px}
+.tick{position:absolute;top:0;bottom:0;width:1px;background:var(--line)}
+.tl-h{position:absolute;top:100%;margin-top:4px;transform:translateX(-50%);font-size:11px;color:var(--ink-2);font-variant-numeric:tabular-nums;white-space:nowrap}
+.end{position:absolute;top:-4px;bottom:-4px;width:0;border-left:2px dashed var(--ink-2)}
+.blk{position:absolute;top:0;bottom:0;background:repeating-linear-gradient(135deg,var(--line) 0 6px,transparent 6px 12px);border:1px dashed var(--ink-2);border-radius:4px;display:grid;place-items:center;font-size:11px;color:var(--ink-2);overflow:hidden}
+.st{position:absolute;top:4px;bottom:4px;min-width:18px;border-radius:4px;display:grid;place-items:center;font:800 14px var(--font-d);border:2px solid}
+.st.ok{background:var(--verde-t);border-color:var(--verde);color:var(--verde)}
+.st.late{background:var(--rojo-t);border-color:var(--rojo);color:var(--rojo)}
+.st.over{background:var(--ambar-t);border-color:var(--ambar);color:var(--ambar)}
+.ag{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.ag li{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;align-items:start;font-size:14.5px}
+.ag .dot{width:24px;height:24px;font-size:12.5px}
+.legend{font-size:12.5px;color:var(--ink-2)}
+
+/* checks */
+.checks{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.checks li{display:flex;gap:10px;align-items:flex-start}
+.tick-b{width:22px;height:22px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;font:800 13px var(--font-b);flex:none;color:transparent}
+.checks li.on .tick-b{background:var(--verde-t);border-color:var(--verde);color:var(--verde)}
+
+/* imprevisto */
+.imp{border:2px dashed var(--ink-2);background:var(--surface)}
+.imp.open{border-style:solid;border-color:var(--ambar);background:var(--ambar-t)}
+.imp .q{font-weight:600}
+.imp-text{font:600 19px/1.35 var(--font-d)}
+.adj-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px 12px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
+.adj-row:first-child{border-top:0}
+.adj-row .seg{grid-column:1/-1}
+.adj-t b{display:block}
+
+/* cierre */
+.steps{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+.steps li{display:flex;align-items:center;gap:8px;background:var(--surface-2);border-radius:8px;padding:6px 12px;font-weight:600}
+.steps li span{width:22px;height:22px;border-radius:50%;background:var(--ink);color:var(--bg);display:grid;place-items:center;font:800 12.5px var(--font-d)}
+
+/* facilitación */
+.mat{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+.mat div{background:var(--surface-2);border-radius:8px;padding:8px 10px;font-size:13.5px}
+.mat b{display:block;font:800 22px var(--font-d)}
+.pair{border:1px solid var(--line);border-radius:10px;padding:12px;display:grid;gap:10px}
+.pair-h{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.pair-h input{flex:1 1 180px;min-width:0}
+.crit{display:grid;gap:6px;border-top:1px solid var(--line);padding-top:10px}
+.crit p{font-size:14.5px}
+.nav-next{display:flex;gap:10px;flex-wrap:wrap}
+.foot{color:var(--ink-2);font-size:13px;max-width:70ch;padding-top:8px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-weight:600;z-index:40;max-width:calc(100% - 32px);text-align:center}
+@media (prefers-reduced-motion:no-preference){.prog i{transition:width .25s linear}}
+</style>
+
+<header class="bar">
+  <div class="wrap">
+    <div class="bar-in">
+      <div class="brand">
+        <span class="sem" aria-hidden="true"><i></i><i></i><i></i></span>
+        <div><b>Mi semáforo de prioridades</b><small>Del aula al trabajo · Autorregulación</small></div>
+      </div>
+      <div class="clock" id="clock">
+        <div><span class="ph" id="clockPhase">Inicio</span><output id="clockTime" aria-label="Tiempo restante">05:00</output><small id="clockHint"></small></div>
+        <div class="btns">
+          <button class="btn primary sm" id="clockToggle" data-act="clock" type="button">Iniciar</button>
+          <button class="btn ghost sm" data-act="clockreset" type="button" aria-label="Reiniciar esta fase">↺</button>
+        </div>
+      </div>
+    </div>
+    <div class="prog" aria-hidden="true">
+      <span style="flex:300"><i id="p-inicio"></i></span>
+      <span style="flex:1320"><i id="p-desarrollo"></i></span>
+      <span style="flex:480"><i id="p-cierre"></i></span>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Momentos de la actividad">
+      <button class="tab" role="tab" data-act="tab" data-v="inicio" type="button"><span>Inicio</span><small>5 min</small></button>
+      <button class="tab" role="tab" data-act="tab" data-v="desarrollo" type="button"><span>Desarrollo</span><small>22 min</small></button>
+      <button class="tab" role="tab" data-act="tab" data-v="cierre" type="button"><span>Cierre</span><small>8 min</small></button>
+      <button class="tab" role="tab" data-act="tab" data-v="facilitar" type="button"><span>Facilitar</span><small>equipo</small></button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+<!-- INICIO -->
+<section class="panel" id="s-inicio">
+  <p class="eyebrow">Inicio · 5 min</p>
+  <h1>Si recibes cuatro pendientes al mismo tiempo, ¿por dónde empiezas?</h1>
+  <p class="lead">Van a practicar cómo ordenar, decidir y reajustar con un caso ficticio de una persona practicante de Recursos Humanos. Se revisan las decisiones, no a las personas.</p>
+
+  <div class="card">
+    <h2>Su pareja</h2>
+    <div class="two">
+      <label class="fld"><span class="lab">Persona A</span><input type="text" id="nameA" data-bind="names.a" placeholder="Nombre" autocomplete="off"></label>
+      <label class="fld"><span class="lab">Persona B</span><input type="text" id="nameB" data-bind="names.b" placeholder="Nombre" autocomplete="off"></label>
+    </div>
+    <div class="roles" id="roles1"></div>
+    <p class="mini">Una persona propone el orden y la otra revisa las razones. Los roles se intercambian cuando llegue el imprevisto.</p>
+  </div>
+
+  <div class="card">
+    <h2>Reglas del juego</h2>
+    <ul class="plain">
+      <li>Todo el caso es ficticio. Nadie tiene que compartir datos personales.</li>
+      <li>Importa cada decisión y su razón, no que la respuesta coincida con la de otra pareja.</li>
+      <li>El tiempo es corto: usen frases breves y datos del caso.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>¿Qué suelen hacer cuando todo parece urgente?</h2>
+    <p class="mini">Marquen lo que ya usan. Es un recurso de su experiencia.</p>
+    <div class="chips" id="chipsStrat"></div>
+    <label class="fld"><span class="lab">Otra estrategia</span><input type="text" data-bind="inicio.otros" placeholder="Escríbanla aquí" autocomplete="off"></label>
+  </div>
+
+  <div class="card">
+    <h2>¿Qué información necesitan para decidir?</h2>
+    <div class="chips" id="chipsInfo"></div>
+    <p class="note" id="infoNote"></p>
+  </div>
+
+  <div class="nav-next"><button class="btn primary" data-act="tab" data-v="desarrollo" type="button">Ver el caso →</button></div>
+</section>
+
+<!-- DESARROLLO -->
+<section class="panel" id="s-desarrollo" hidden>
+  <p class="eyebrow">Desarrollo · 22 min</p>
+  <h1>Martes, 9:00 a.m. Cuatro pendientes y una jornada.</h1>
+  <p class="lead">Eres practicante en Recursos Humanos de Manufacturas Altamira (empresa ficticia). Tu jornada termina a las 2:00 p.m. Ordenen las tarjetas de la que harían primero a la que harían al final, y marquen urgencia, importancia y decisión.</p>
+
+  <div class="card">
+    <div class="roles" id="roles2"></div>
+    <div><span class="lab">Quien revisa puede preguntar</span>
+      <ul class="plain"><li>¿Qué consecuencia tendría retrasar esta tarea?</li><li>¿Qué fecha límite tiene?</li><li>¿Qué cambiaría tu decisión?</li></ul></div>
+  </div>
+
+  <div id="lockNote"></div>
+  <div class="tasks" id="initialList"></div>
+
+  <div class="grid2">
+    <div class="card"><h2>Matriz de urgencia e importancia</h2><div id="mx"></div><p class="legend" id="mxNote"></p></div>
+    <div class="card"><h2>Agenda de la jornada</h2>
+      <p class="mini">Prueben su orden: cada tarea empieza cuando termina la anterior, desde las 9:00 a.m. No sustituye su criterio, sólo muestra qué pasa con los horarios.</p>
+      <div><button class="btn sm" data-act="sim" id="simBtn" type="button">Probar mi orden</button></div>
+      <div id="simBox" hidden><div class="tl" id="tl1"></div><ul class="ag" id="ag1"></ul></div>
+    </div>
+  </div>
+
+  <div class="card"><h2>Antes de entregar la hoja</h2><ul class="checks" id="checks"></ul></div>
+
+  <div class="card imp" id="impBox"></div>
+
+  <div class="panel" id="adjBox" hidden>
+    <h2 style="font-size:26px">Plan ajustado</h2>
+    <div class="card">
+      <p class="mini">Mismo caso, nueva información. Son las 9:15 a.m. Reordenen, cambien la decisión de cada tarea si hace falta y expliquen qué cambia.</p>
+      <div id="adjList"></div>
+    </div>
+    <div class="grid2">
+      <div class="card"><h2>Agenda con el imprevisto</h2><div class="tl" id="tl2"></div><ul class="ag" id="ag2"></ul></div>
+      <div class="card">
+        <label class="fld"><span class="lab">¿Qué cambian y por qué?</span><textarea rows="4" data-bind="adj.cambio" placeholder="Qué tarea sube, cuál se programa y qué dato del caso lo explica"></textarea></label>
+        <label class="fld"><span class="lab">¿A quién avisan o de quién piden apoyo?</span><textarea rows="3" data-bind="adj.comunica" placeholder="Persona, qué le dicen y cuándo"></textarea></label>
+      </div>
+    </div>
+  </div>
+
+  <div class="nav-next"><button class="btn primary" data-act="tab" data-v="cierre" type="button">Ir al cierre →</button></div>
+</section>
+
+<!-- CIERRE -->
+<section class="panel" id="s-cierre" hidden>
+  <p class="eyebrow">Cierre · 8 min</p>
+  <h1>Una decisión para compartir y una estrategia para llevarte.</h1>
+
+  <div class="card">
+    <h2>Decisión que comparte la pareja</h2>
+    <label class="fld"><span class="lab">Tarea</span><select id="sharedSel" data-bind="cierre.shared"></select></label>
+    <label class="fld"><span class="lab">¿Por qué la tomaron así?</span><textarea rows="3" data-bind="cierre.sharedWhy" placeholder="Una o dos frases con datos del caso"></textarea></label>
+  </div>
+
+  <div class="card">
+    <h2>Los cinco pasos</h2>
+    <ol class="steps"><li><span>1</span>Detenerse</li><li><span>2</span>Analizar</li><li><span>3</span>Priorizar</li><li><span>4</span>Actuar</li><li><span>5</span>Reajustar</li></ol>
+    <div><span class="lab">¿En cuál les costó más?</span><div class="chips" id="chipsHard"></div></div>
+  </div>
+
+  <div class="card">
+    <h2>Tarjeta de salida</h2>
+    <p class="mini">Cada persona responde la suya.</p>
+    <div id="salida"></div>
+    <ul class="checks" id="salidaChecks"></ul>
+  </div>
+
+  <div class="card">
+    <h2>Resumen de la pareja</h2>
+    <p class="mini">Muéstrenlo al equipo facilitador o cópienlo. Se arma solo con lo que ya escribieron.</p>
+    <textarea id="resumen" rows="14" readonly aria-label="Resumen de la pareja"></textarea>
+    <div><button class="btn primary" data-act="copy" type="button">Copiar resumen</button></div>
+  </div>
+</section>
+
+<!-- FACILITAR -->
+<section class="panel" id="s-facilitar" hidden>
+  <p class="eyebrow">Equipo facilitador</p>
+  <h1>Cotejo y preparación de la sesión.</h1>
+  <p class="lead">Los criterios están a la vista para que las parejas sepan qué se valora. Cada dispositivo guarda sus propios datos.</p>
+
+  <div class="card">
+    <h2>Material según el grupo</h2>
+    <label class="fld" style="max-width:260px"><span class="lab">Personas participantes</span><input type="number" min="0" inputmode="numeric" data-bind="grupo.n" placeholder="Ej. 24"></label>
+    <div class="mat" id="mat"></div>
+    <p class="mini">Además: plumones o lápices y un cronómetro por estación.</p>
+  </div>
+
+  <div class="card">
+    <h2>Tarjeta de imprevisto en este dispositivo</h2>
+    <label class="fld" style="max-width:360px"><span class="lab">Cuál se entrega</span>
+      <select data-bind="impChoice"><option value="random">Al azar</option><option value="1">Cambio de agenda</option><option value="2">Te necesitan en otro lugar</option><option value="3">Falla del sistema</option></select></label>
+    <p class="mini">Se entrega a los 10 minutos del desarrollo. Si ya se volteó, reinicien la actividad para cambiarla.</p>
+  </div>
+
+  <div class="card">
+    <h2>Lista de cotejo</h2>
+    <p class="mini">Resultado alcanzado: al menos 3 de 4 criterios en Logrado, y el criterio 3 debe ser uno de ellos.</p>
+    <p class="note" id="cotSum"></p>
+    <div id="cotList" style="display:grid;gap:12px"></div>
+    <div><button class="btn" data-act="cotadd" type="button">Agregar pareja</button></div>
+  </div>
+
+  <div class="card">
+    <h2>Reiniciar</h2>
+    <p class="mini">Borra lo escrito y los cronómetros en este dispositivo.</p>
+    <div><button class="btn danger" data-act="reset" id="resetBtn" type="button">Reiniciar actividad</button></div>
+  </div>
+</section>
+
+<p class="foot">Diseño de la experiencia: Itzel Arely Durán Sámano y Danna Paola Colunga Ochoa · Andragogía · Licenciatura en Psicología, Área del Trabajo · Campus San Juan del Río. Todos los personajes, datos y empresa del caso son ficticios.</p>
+</main>
+
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+(function(){
+'use strict';
+var START=540, END=840;
+var PH={inicio:{t:300,label:'Inicio'},desarrollo:{t:1320,label:'Desarrollo'},cierre:{t:480,label:'Cierre'}};
+var TABS=['inicio','desarrollo','cierre','facilitar'];
+var TASKS=[
+ {id:'A',short:'Expediente de la entrevista',title:'Preparar el expediente de la entrevista',who:'Mtra. Salgado, coordinadora de RR.HH.',
+  ask:'Mañana a las 9:30 a.m. entrevista a una candidata a auxiliar administrativa. Faltan imprimir el CV, la guía de entrevista y el formato de evaluación.',
+  dur:60,due:780,dueTxt:'Imprimir antes de la 1:00 p.m., cuando recepción cierra los pedidos',cons:'La entrevista empieza sin guía ni formato de evaluación y puede reprogramarse.'},
+ {id:'B',short:'Listado para el Ing. Ramos',title:'Atender la solicitud del Ing. Ramos',who:'Ing. Ramos, supervisor de Producción',
+  ask:'Escribió a las 8:50 a.m. Necesita el listado de faltas del mes del turno matutino para su junta de las 11:00 a.m.',
+  dur:25,due:645,dueTxt:'Antes de las 10:45 a.m., la junta es a las 11:00',cons:'Llega a la junta sin datos y la decisión sobre los turnos se pospone una semana.'},
+ {id:'C',short:'Reporte de rotación',title:'Corregir el reporte mensual de rotación',who:'Dirección General, lo recibe el viernes',
+  ask:'Dos tablas no cuadran con los datos de nómina. Hay que revisar las cifras una por una.',
+  dur:90,due:null,dueTxt:'Viernes 12:00 p.m. (faltan 3 días)',cons:'Dirección vería cifras erróneas en el reporte que más consulta cada mes.'},
+ {id:'D',short:'Aviso a la Lic. Paredes',title:'Avisar de un retraso a la Lic. Paredes',who:'Lic. Paredes, coordinadora de Capacitación',
+  ask:'Le prometiste el reporte de asistencia al curso para hoy a las 12:00 p.m. No alcanzarás a entregarlo. Puede quedar para mañana.',
+  dur:5,due:720,dueTxt:'Avisar antes de las 12:00 p.m., la hora que prometiste',cons:'Ella arma su informe contando con un dato que no llegará y pierde confianza en tus compromisos.'}
+];
+var TB={}; TASKS.forEach(function(t){TB[t.id]=t;});
+var IMPS={
+ 1:{name:'Cambio de agenda',texto:'9:15 a.m. La Mtra. Salgado adelanta la entrevista: será hoy a las 12:30 p.m., no mañana.',
+    q:'¿Qué tarea sube de prioridad y qué dejan para después?',fx:{A:{due:735}}},
+ 2:{name:'Te necesitan en otro lugar',texto:'9:15 a.m. Tu coordinadora te pide cubrir la recepción de 11:00 a.m. a 12:30 p.m.',
+    q:'¿Qué pueden hacer antes de las 11:00 y qué conviene programar para otro momento?',block:[660,750]},
+ 3:{name:'Falla del sistema',texto:'9:15 a.m. El sistema de asistencia y nómina se cae y vuelve hasta la 1:00 p.m. Sin él no puedes sacar el listado de faltas ni las cifras del reporte.',
+    q:'¿Qué tarea no pueden hacer sin el sistema? ¿A quién avisan o de quién piden apoyo?',fx:{B:{notBefore:780},C:{notBefore:780}}}
+};
+var STRATS=['Lista de pendientes','Agenda o calendario','Alarmas del celular','Empiezo por lo más fácil','Empiezo por lo que más me preocupa','Pregunto a alguien qué sigue','Espero a ver qué se vuelve más urgente'];
+var INFOS=['Fecha y hora límite','Quién lo pide','Qué pasa si se retrasa','Cuánto tiempo toma','Si depende de otra persona','Si puedo pedir apoyo'];
+var STEPS=['Detenerse','Analizar','Priorizar','Actuar','Reajustar'];
+var CRIT=['Ordena las tareas considerando urgencia, importancia y consecuencias.','Justifica al menos dos decisiones con información del caso.','Ajusta el plan de forma coherente ante el imprevisto.','Identifica una acción realista para regular su respuesta (pausar, revisar prioridades, comunicar un retraso o pedir apoyo).'];
+var LVL={alta:'Alta',media:'Media',baja:'Baja'};
+var DEC={primero:'Hacer primero',programar:'Programar',apoyo:'Pedir apoyo'};
+var KEY='semaforo-prioridades-v1';
+
+function defaults(){return {
+ tab:'inicio',clockPhase:'inicio',swap:false,sim:false,
+ names:{a:'',b:''},
+ inicio:{strat:[],info:[],otros:''},
+ tasks:{A:{u:'',i:'',d:'',m:''},B:{u:'',i:'',d:'',m:''},C:{u:'',i:'',d:'',m:''},D:{u:'',i:'',d:'',m:''}},
+ order:['A','B','C','D'],
+ imp:{id:0,revealed:false},impChoice:'random',
+ adj:{order:[],dec:{A:'',B:'',C:'',D:''},cambio:'',comunica:''},
+ cierre:{shared:'',sharedWhy:'',hard:'',who:'a',salida:{a:{estrategia:'',senal:''},b:{estrategia:'',senal:''}}},
+ elapsed:{inicio:0,desarrollo:0,cierre:0},
+ grupo:{n:''},cotejo:[]
+};}
+function merge(b,s){
+ if(!s||typeof s!=='object')return b;
+ Object.keys(s).forEach(function(k){
+  if(b[k]&&typeof b[k]==='object'&&!Array.isArray(b[k])&&s[k]&&typeof s[k]==='object'&&!Array.isArray(s[k]))merge(b[k],s[k]);
+  else b[k]=s[k];
+ });
+ return b;
+}
+var S;
+try{var raw=localStorage.getItem(KEY);S=raw?merge(defaults(),JSON.parse(raw)):defaults();}catch(e){S=defaults();}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+
+var $=function(s,r){return (r||document).querySelector(s);};
+var $$=function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s));};
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function getPath(o,p){return p.split('.').reduce(function(a,k){return a==null?a:a[k];},o);}
+function setPath(o,p,v){var ks=p.split('.'),l=ks.pop();var t=ks.reduce(function(a,k){return a[k];},o);t[l]=v;}
+function nm(k){var v=(S.names[k]||'').trim();return v||(k==='a'?'Persona A':'Persona B');}
+function fmt(m){var h=Math.floor(m/60),mi=m%60;return (h%12||12)+':'+(mi<10?'0':'')+mi+' '+(h>=12?'p.m.':'a.m.');}
+function mmss(s){s=Math.max(0,Math.ceil(s));var m=Math.floor(s/60),x=s%60;return (m<10?'0':'')+m+':'+(x<10?'0':'')+x;}
+function len(v){return (v||'').trim().length;}
+
+var toastT;
+function toast(msg){var t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(function(){t.hidden=true;},3500);}
+function beep(){try{var C=window.AudioContext||window.webkitAudioContext;if(!C)return;var c=new C(),o=c.createOscillator(),g=c.createGain();o.frequency.value=880;g.gain.value=.08;o.connect(g);g.connect(c.destination);o.start();setTimeout(function(){o.stop();c.close();},320);}catch(e){}}
+
+/* ---------- cronómetro ---------- */
+var running=null,lastT=0,saveN=0;
+function renderClock(){
+ var ph=S.clockPhase,P=PH[ph],rem=P.t-S.elapsed[ph];
+ $('#clockPhase').textContent=P.label;
+ $('#clockTime').textContent=mmss(rem);
+ var c=$('#clock');c.classList.toggle('warn',rem<=60&&rem>0);c.classList.toggle('done',rem<=0);
+ $('#clockToggle').textContent=running===ph?'Pausar':(rem<=0?'Reiniciar':(S.elapsed[ph]>0?'Seguir':'Iniciar'));
+ var hint='';
+ if(ph==='desarrollo'&&!S.imp.revealed&&running==='desarrollo'){hint='Imprevisto en '+mmss(600-S.elapsed.desarrollo);}
+ else if(rem<=0){hint='Tiempo cumplido';}
+ $('#clockHint').textContent=hint;
+ Object.keys(PH).forEach(function(k){$('#p-'+k).style.width=(Math.min(1,S.elapsed[k]/PH[k].t)*100)+'%';});
+}
+function tick(){
+ if(!running)return;
+ var now=Date.now(),d=(now-lastT)/1000;lastT=now;
+ S.elapsed[running]=Math.min(PH[running].t,S.elapsed[running]+d);
+ if(running==='desarrollo'&&!S.imp.revealed&&S.elapsed.desarrollo>=600)revealImp(true);
+ if(S.elapsed[running]>=PH[running].t){beep();running=null;save();}
+ else if(++saveN%8===0)save();
+ renderClock();
+}
+setInterval(tick,250);
+function clockToggle(){
+ var ph=S.clockPhase;
+ if(running===ph){running=null;save();}
+ else{
+  if(S.elapsed[ph]>=PH[ph].t)S.elapsed[ph]=0;
+  running=ph;lastT=Date.now();
+ }
+ renderClock();
+}
+function clockReset(){var ph=S.clockPhase;S.elapsed[ph]=0;if(running===ph)running=null;save();renderClock();}
+
+/* ---------- pestañas ---------- */
+function setTab(t){
+ if(TABS.indexOf(t)<0)t='inicio';
+ S.tab=t;if(PH[t])S.clockPhase=t;save();renderTabs();renderClock();
+}
+function renderTabs(){
+ TABS.forEach(function(k){var s=$('#s-'+k);if(s)s.hidden=(k!==S.tab);});
+ $$('.tab').forEach(function(b){var on=b.dataset.v===S.tab;b.setAttribute('aria-selected',on?'true':'false');});
+}
+
+/* ---------- inicio ---------- */
+function chipHTML(list,sel,group){
+ return list.map(function(x,i){var on=sel.indexOf(x)>=0;return '<button type="button" class="chip" data-act="chip" data-g="'+group+'" data-v="'+esc(x)+'" aria-pressed="'+on+'">'+esc(x)+'</button>';}).join('');
+}
+function renderChips(){
+ $('#chipsStrat').innerHTML=chipHTML(STRATS,S.inicio.strat,'strat');
+ $('#chipsInfo').innerHTML=chipHTML(INFOS,S.inicio.info,'info');
+ var n=S.inicio.info.length;
+ $('#infoNote').textContent=n===0?'Marquen lo que necesitarían saber antes de decidir. Casi todo viene en las tarjetas del caso.':'Eligieron '+n+' de '+INFOS.length+'. Cada tarjeta del caso trae quién pide, la fecha límite, el tiempo estimado y qué pasa si se retrasa. Úsenlo para justificar.';
+}
+function rolesHTML(){
+ var p=S.swap?'b':'a',r=S.swap?'a':'b';
+ return '<div class="roles-in"><div><span class="lab">Propone el orden</span><b>'+esc(nm(p))+'</b></div><div><span class="lab">Revisa las razones</span><b>'+esc(nm(r))+'</b></div><button class="btn ghost sm" data-act="swap" type="button">Intercambiar roles</button></div>';
+}
+function renderRoles(){$('#roles1').innerHTML=rolesHTML();$('#roles2').innerHTML=rolesHTML();}
+
+/* ---------- desarrollo ---------- */
+function segBtns(kind,id,val,locked,opts){
+ return opts.map(function(o){return '<button type="button" class="'+(o[2]||'')+'" data-act="set" data-k="'+kind+'" data-id="'+id+'" data-v="'+o[0]+'" aria-pressed="'+(val===o[0])+'"'+(locked?' disabled':'')+'>'+o[1]+'</button>';}).join('');
+}
+var LV=[['alta','Alta','r'],['media','Media','a'],['baja','Baja','v']];
+var DC=[['primero','Hacer primero'],['programar','Programar'],['apoyo','Pedir apoyo']];
+function moveBtns(list,id,pos,locked){
+ return '<div class="mv"><button class="ic" type="button" data-act="move" data-list="'+list+'" data-id="'+id+'" data-dir="-1" aria-label="Subir la tarea '+id+'"'+(pos===1||locked?' disabled':'')+'>↑</button><button class="ic" type="button" data-act="move" data-list="'+list+'" data-id="'+id+'" data-dir="1" aria-label="Bajar la tarea '+id+'"'+(pos===4||locked?' disabled':'')+'>↓</button></div>';
+}
+function taskCard(id,pos,locked){
+ var t=TB[id],v=S.tasks[id];
+ return '<article class="task'+(locked?' locked':'')+'"><div class="task-h"><span class="pos" aria-label="Posición '+pos+'">'+pos+'</span><div class="task-t"><span class="lab">Tarea '+id+'</span><h3>'+esc(t.title)+'</h3></div>'+moveBtns('order',id,pos,locked)+'</div>'
+ +'<dl class="facts"><div><dt>Quién lo pide</dt><dd>'+esc(t.who)+'</dd></div><div><dt>Qué pasó</dt><dd>'+esc(t.ask)+'</dd></div><div><dt>Límite</dt><dd>'+esc(t.dueTxt)+'</dd></div><div><dt>Tiempo estimado</dt><dd>'+t.dur+' min</dd></div><div><dt>Si se retrasa</dt><dd>'+esc(t.cons)+'</dd></div></dl>'
+ +'<div class="ctrl"><div><span class="lab">Urgencia</span><div class="seg" role="group" aria-label="Urgencia de la tarea '+id+'">'+segBtns('u',id,v.u,locked,LV)+'</div></div>'
+ +'<div><span class="lab">Importancia</span><div class="seg" role="group" aria-label="Importancia de la tarea '+id+'">'+segBtns('i',id,v.i,locked,LV)+'</div></div></div>'
+ +'<div><span class="lab">Decisión</span><div class="seg" role="group" aria-label="Decisión para la tarea '+id+'">'+segBtns('d',id,v.d,locked,DC)+'</div></div>'
+ +'<label class="fld"><span class="lab">Motivo</span><textarea rows="2" data-bind="tasks.'+id+'.m" placeholder="Usen datos del caso: límite, consecuencia, tiempo, quién lo pide"'+(locked?' readonly':'')+'>'+esc(v.m)+'</textarea></label></article>';
+}
+function renderTasks(){
+ var locked=S.imp.revealed;
+ $('#initialList').innerHTML=S.order.map(function(id,i){return taskCard(id,i+1,locked);}).join('');
+ $('#lockNote').innerHTML=locked?'<p class="note">Plan inicial guardado. Ya no se edita; ajusten el plan más abajo.</p>':'';
+}
+function renderMx(){
+ var rows=['alta','media','baja'],cols=['baja','media','alta'],val={alta:3,media:2,baja:1};
+ var h='<div class="h"></div>'+cols.map(function(c){return '<div class="h">Urgencia '+LVL[c].toLowerCase()+'</div>';}).join('');
+ rows.forEach(function(r){
+  h+='<div class="h">Importancia '+LVL[r].toLowerCase()+'</div>';
+  cols.forEach(function(c){
+   var s=val[r]+val[c],cls=s>=5?'t3':(s>=3?'t2':'t1');
+   var chips=S.order.filter(function(id){return S.tasks[id].i===r&&S.tasks[id].u===c;}).map(function(id){return '<span class="dot">'+id+'</span>';}).join('');
+   h+='<div class="c '+cls+'">'+chips+'</div>';
+  });
+ });
+ $('#mx').className='mx';$('#mx').innerHTML=h;
+ var un=S.order.filter(function(id){return !(S.tasks[id].i&&S.tasks[id].u);});
+ $('#mxNote').textContent=un.length?'Sin ubicar: '+un.join(', ')+'.':'Las cuatro tareas están ubicadas.';
+}
+function schedule(order,start,imp){
+ var cur=start,out={};
+ order.forEach(function(id){
+  var t=TB[id],due=t.due,nb=0,fx=imp&&imp.fx&&imp.fx[id];
+  if(fx){if(fx.due!=null)due=fx.due;if(fx.notBefore)nb=fx.notBefore;}
+  var s=Math.max(cur,nb);
+  if(imp&&imp.block&&s<imp.block[1]&&s+t.dur>imp.block[0])s=imp.block[1];
+  var e=s+t.dur;cur=e;
+  var st='ok';if(due!=null&&e>due)st='late';else if(e>END)st='over';
+  out[id]={s:s,e:e,due:due,st:st};
+ });
+ return out;
+}
+function stText(r){
+ if(r.st==='late')return 'Pasa su límite ('+fmt(r.due)+')';
+ if(r.st==='over')return 'Termina después de la jornada';
+ return r.due==null?'Sin límite hoy':'Llega a tiempo';
+}
+function renderTL(trackEl,listEl,order,sch,imp){
+ var maxEnd=END;order.forEach(function(id){if(sch[id].e>maxEnd)maxEnd=sch[id].e;});
+ var hi=Math.ceil(maxEnd/60)*60,lo=START,span=hi-lo;
+ var pct=function(m){return (m-lo)/span*100;};
+ var h='<div class="tl-track">';
+ for(var m=lo;m<=hi;m+=60){h+='<i class="tick" style="left:'+pct(m)+'%"></i><span class="tl-h" style="left:'+pct(m)+'%">'+((Math.floor(m/60))%12||12)+':00</span>';}
+ if(imp&&imp.block)h+='<div class="blk" style="left:'+pct(imp.block[0])+'%;width:'+(pct(imp.block[1])-pct(imp.block[0]))+'%"><span>Recepción</span></div>';
+ h+='<i class="end" style="left:'+pct(END)+'%" title="Fin de la jornada"></i>';
+ order.forEach(function(id){var r=sch[id];h+='<div class="st '+r.st+'" style="left:'+pct(r.s)+'%;width:'+(pct(r.e)-pct(r.s))+'%" title="'+id+': '+fmt(r.s)+' a '+fmt(r.e)+'">'+id+'</div>';});
+ h+='</div>';
+ trackEl.innerHTML=h;
+ listEl.innerHTML=order.map(function(id){var r=sch[id];return '<li><span class="dot">'+id+'</span><div><b>'+esc(TB[id].short)+'</b><br><span class="mini">'+fmt(r.s)+' a '+fmt(r.e)+'</span> <span class="pill '+r.st+'">'+stText(r)+'</span></div></li>';}).join('')+'<li><span></span><span class="legend">La línea punteada marca las 2:00 p.m., fin de la jornada.</span></li>';
+}
+function renderSim(){
+ $('#simBox').hidden=!S.sim;
+ $('#simBtn').textContent=S.sim?'Ocultar agenda':'Probar mi orden';
+ if(S.sim)renderTL($('#tl1'),$('#ag1'),S.order,schedule(S.order,START,null),null);
+}
+function renderChecks(){
+ var all=S.order.every(function(id){var v=S.tasks[id];return v.u&&v.i&&v.d;});
+ var mot=S.order.filter(function(id){return len(S.tasks[id].m)>=20;}).length>=2;
+ var adj=S.imp.revealed&&len(S.adj.cambio)>=20;
+ var items=[[all,'Las cuatro tareas tienen urgencia, importancia y decisión.'],[mot,'Al menos dos decisiones tienen un motivo con datos del caso.'],[adj,'El plan ajustado explica qué cambia ante el imprevisto.']];
+ $('#checks').innerHTML=items.map(function(x){return '<li class="'+(x[0]?'on':'')+'"><span class="tick-b" aria-hidden="true">✓</span><span>'+x[1]+'<span class="mini"> '+(x[0]?'(listo)':'(pendiente)')+'</span></span></li>';}).join('');
+}
+function renderImp(){
+ var box=$('#impBox');
+ if(!S.imp.revealed){
+  box.className='card imp';
+  box.innerHTML='<span class="eyebrow">Tarjeta de imprevisto</span><h2>Boca abajo</h2><p>Llega a los 10 minutos del desarrollo. Voltéenla cuando el equipo facilitador se las entregue. Si el cronómetro está corriendo, se voltea sola.</p><div><button class="btn primary" data-act="reveal" type="button">Voltear tarjeta</button></div>';
+  $('#adjBox').hidden=true;
+ }else{
+  var I=IMPS[S.imp.id];
+  box.className='card imp open';
+  box.innerHTML='<span class="eyebrow">Imprevisto · '+esc(I.name)+'</span><p class="imp-text">'+esc(I.texto)+'</p><p class="q">'+esc(I.q)+'</p>';
+  $('#adjBox').hidden=false;
+ }
+}
+function renderAdj(){
+ if(!S.imp.revealed)return;
+ if(S.adj.order.length!==4)S.adj.order=S.order.slice();
+ var imp=IMPS[S.imp.id],sch=schedule(S.adj.order,START+15,imp);
+ $('#adjList').innerHTML=S.adj.order.map(function(id,i){
+  var pos=i+1,r=sch[id],old=S.order.indexOf(id),d=old-i;
+  var chg=d>0?'sube '+d:(d<0?'baja '+(-d):'sin cambio de posición');
+  return '<div class="adj-row"><span class="pos">'+pos+'</span><div class="adj-t"><b>'+id+' · '+esc(TB[id].short)+'</b><span class="mini">'+fmt(r.s)+' a '+fmt(r.e)+' · '+chg+'</span> <span class="pill '+r.st+'">'+stText(r)+'</span></div>'+moveBtns('adj',id,pos,false)
+   +'<div class="seg" role="group" aria-label="Decisión ajustada para la tarea '+id+'">'+segBtns('adjd',id,S.adj.dec[id],false,DC)+'</div></div>';
+ }).join('');
+ renderTL($('#tl2'),$('#ag2'),S.adj.order,sch,imp);
+}
+function revealImp(auto){
+ if(S.imp.revealed)return;
+ var c=S.impChoice,id=(c==='random'||!c)?1+Math.floor(Math.random()*3):Number(c);
+ S.imp={id:id,revealed:true};
+ S.adj.order=S.order.slice();
+ S.adj.dec={A:S.tasks.A.d,B:S.tasks.B.d,C:S.tasks.C.d,D:S.tasks.D.d};
+ S.swap=!S.swap;
+ save();renderTasks();renderImp();renderAdj();renderRoles();renderChecks();renderResumen();
+ toast('Llegó el imprevisto. Ahora propone el orden '+nm(S.swap?'b':'a')+'.');
+ beep();
+}
+
+/* ---------- cierre ---------- */
+function renderShared(){
+ var sel=$('#sharedSel'),h='<option value="">Elijan una tarea</option>';
+ TASKS.forEach(function(t){h+='<option value="'+t.id+'">'+t.id+' · '+esc(t.short)+'</option>';});
+ sel.innerHTML=h;sel.value=S.cierre.shared||'';
+}
+function renderHard(){
+ $('#chipsHard').innerHTML=STEPS.map(function(x){return '<button type="button" class="chip" data-act="hard" data-v="'+x+'" aria-pressed="'+(S.cierre.hard===x)+'">'+x+'</button>';}).join('');
+}
+function renderSalida(){
+ var w=S.cierre.who,v=S.cierre.salida[w];
+ $('#salida').innerHTML='<div class="seg" role="group" aria-label="Quién responde" style="margin-bottom:12px">'+['a','b'].map(function(k){return '<button type="button" data-act="who" data-v="'+k+'" aria-pressed="'+(w===k)+'">'+esc(nm(k))+'</button>';}).join('')+'</div>'
+ +'<label class="fld"><span class="lab">¿Qué estrategia aplicarás en tus prácticas?</span><textarea rows="3" data-bind="cierre.salida.'+w+'.estrategia">'+esc(v.estrategia)+'</textarea></label>'
+ +'<label class="fld" style="margin-top:12px"><span class="lab">¿Cuándo pedirías apoyo o reajustarías el plan? Escribe la señal que te lo indicaría.</span><textarea rows="3" data-bind="cierre.salida.'+w+'.senal">'+esc(v.senal)+'</textarea></label>';
+ renderSalidaChecks();
+}
+function renderSalidaChecks(){
+ $('#salidaChecks').innerHTML=['a','b'].map(function(k){var v=S.cierre.salida[k],ok=len(v.estrategia)>=10&&len(v.senal)>=10;return '<li class="'+(ok?'on':'')+'"><span class="tick-b" aria-hidden="true">✓</span><span>Tarjeta de '+esc(nm(k))+'<span class="mini"> '+(ok?'(completa)':'(pendiente)')+'</span></span></li>';}).join('');
+}
+function resumen(){
+ var L=[];
+ L.push('SEMÁFORO DE PRIORIDADES · Del aula al trabajo');
+ L.push('Pareja: '+nm('a')+' y '+nm('b'));L.push('');
+ L.push('PLAN INICIAL');
+ S.order.forEach(function(id,i){var v=S.tasks[id];L.push((i+1)+'. '+TB[id].short+' · urgencia '+(LVL[v.u]||'sin marcar').toLowerCase()+', importancia '+(LVL[v.i]||'sin marcar').toLowerCase()+', decisión: '+(DEC[v.d]||'sin marcar'));if(v.m.trim())L.push('   Motivo: '+v.m.trim());});
+ if(S.imp.revealed){
+  var I=IMPS[S.imp.id];L.push('');L.push('IMPREVISTO · '+I.name);L.push(I.texto);L.push('PLAN AJUSTADO');
+  S.adj.order.forEach(function(id,i){L.push((i+1)+'. '+TB[id].short+' · decisión: '+(DEC[S.adj.dec[id]]||'sin marcar'));});
+  if(S.adj.cambio.trim())L.push('Qué cambian y por qué: '+S.adj.cambio.trim());
+  if(S.adj.comunica.trim())L.push('A quién avisan o piden apoyo: '+S.adj.comunica.trim());
+ }
+ L.push('');L.push('DECISIÓN QUE COMPARTEN');
+ L.push(S.cierre.shared?TB[S.cierre.shared].short+(S.cierre.sharedWhy.trim()?' · '+S.cierre.sharedWhy.trim():''):'sin elegir');
+ if(S.cierre.hard)L.push('Paso que más costó: '+S.cierre.hard);
+ ['a','b'].forEach(function(k){var v=S.cierre.salida[k];L.push('');L.push('TARJETA DE SALIDA · '+nm(k));L.push('Estrategia: '+(v.estrategia.trim()||'—'));L.push('Señal para pedir apoyo o reajustar: '+(v.senal.trim()||'—'));});
+ return L.join('\n');
+}
+function renderResumen(){$('#resumen').value=resumen();}
+function copyResumen(){
+ var ta=$('#resumen');
+ var fail=function(){toast('Seleccionen el texto y cópienlo.');ta.focus();ta.select();};
+ try{navigator.clipboard.writeText(ta.value).then(function(){toast('Resumen copiado');},fail);}catch(e){fail();}
+}
+
+/* ---------- facilitación ---------- */
+function renderMat(){
+ var n=parseInt(S.grupo.n,10);
+ if(!(n>0)){$('#mat').innerHTML='<p class="mini">Escriban cuántas personas participan para calcular el material.</p>';return;}
+ var g=Math.max(1,Math.floor(n/2));
+ var cell=function(v,l){return '<div><b>'+v+'</b>'+l+'</div>';};
+ $('#mat').innerHTML=cell(g,'equipos'+(n%2&&n>1?' (uno de 3 personas)':''))+cell(g,'tarjetas del caso')+cell(g,'hojas del semáforo')+cell(g,'tarjetas de imprevisto')+cell(n,'tarjetas de salida')+cell(g,'listas de cotejo');
+}
+function cotResult(r){
+ if(r.c.some(function(x){return !x;}))return {t:'Pendiente',c:''};
+ var L=r.c.filter(function(x){return x==='L';}).length;
+ return (L>=3&&r.c[2]==='L')?{t:'Resultado alcanzado',c:'v'}:{t:'Aún no alcanzado',c:'a'};
+}
+function renderCot(){
+ var CS=[['L','Logrado','v'],['P','Parcial','a'],['N','No logrado','r']];
+ var ok=0,no=0,pe=0;
+ S.cotejo.forEach(function(r){var x=cotResult(r);if(x.c==='v')ok++;else if(x.c==='a')no++;else pe++;});
+ $('#cotSum').textContent=S.cotejo.length?(S.cotejo.length+' parejas · '+ok+' alcanzaron el resultado · '+no+' aún no · '+pe+' pendientes'):'Aún no hay parejas. Agreguen la primera para empezar el cotejo.';
+ $('#cotList').innerHTML=S.cotejo.map(function(r,i){
+  var x=cotResult(r);
+  return '<div class="pair"><div class="pair-h"><input type="text" data-bind="cotejo.'+i+'.name" value="'+esc(r.name)+'" placeholder="Pareja '+(i+1)+'" aria-label="Nombre de la pareja '+(i+1)+'" autocomplete="off"><span class="pill '+x.c+'">'+x.t+'</span><button class="btn ghost sm" type="button" data-act="cotdel" data-i="'+i+'">Quitar</button></div>'
+  +CRIT.map(function(c,ci){return '<div class="crit"><p><b>'+(ci+1)+'.</b> '+esc(c)+'</p><div class="seg" role="group" aria-label="Criterio '+(ci+1)+' de la pareja '+(i+1)+'">'+CS.map(function(o){return '<button type="button" class="'+o[2]+'" data-act="cot" data-i="'+i+'" data-c="'+ci+'" data-v="'+o[0]+'" aria-pressed="'+(r.c[ci]===o[0])+'">'+o[1]+'</button>';}).join('')+'</div></div>';}).join('')+'</div>';
+ }).join('');
+}
+
+/* ---------- eventos ---------- */
+function applyBinds(){
+ $$('[data-bind]').forEach(function(el){var v=getPath(S,el.dataset.bind);if(el.tagName==='SELECT'||el.tagName==='INPUT'||el.tagName==='TEXTAREA')el.value=v==null?'':v;});
+}
+function move(arr,id,dir){var i=arr.indexOf(id),j=i+dir;if(i<0||j<0||j>=arr.length)return;var t=arr[i];arr[i]=arr[j];arr[j]=t;}
+var resetArm=false,resetT;
+document.addEventListener('click',function(e){
+ var b=e.target.closest('[data-act]');if(!b||b.disabled)return;
+ var a=b.dataset.act,v=b.dataset.v,id=b.dataset.id;
+ if(a==='tab'){setTab(v);window.scrollTo(0,0);try{location.hash=v;}catch(x){}}
+ else if(a==='chip'){var arr=S.inicio[b.dataset.g],ix=arr.indexOf(v);if(ix>=0)arr.splice(ix,1);else arr.push(v);save();renderChips();}
+ else if(a==='swap'){S.swap=!S.swap;save();renderRoles();}
+ else if(a==='set'){
+  var k=b.dataset.k;
+  if(k==='adjd'){S.adj.dec[id]=(S.adj.dec[id]===v?'':v);save();renderAdj();renderResumen();}
+  else{if(S.imp.revealed)return;S.tasks[id][k]=(S.tasks[id][k]===v?'':v);save();renderTasks();renderMx();renderChecks();renderResumen();}
+ }
+ else if(a==='move'){
+  if(b.dataset.list==='adj'){move(S.adj.order,id,Number(b.dataset.dir));save();renderAdj();renderResumen();}
+  else{if(S.imp.revealed)return;move(S.order,id,Number(b.dataset.dir));save();renderTasks();renderMx();renderSim();renderShared();renderResumen();}
+ }
+ else if(a==='sim'){S.sim=!S.sim;save();renderSim();}
+ else if(a==='reveal'){revealImp(false);}
+ else if(a==='clock'){clockToggle();}
+ else if(a==='clockreset'){clockReset();}
+ else if(a==='hard'){S.cierre.hard=(S.cierre.hard===v?'':v);save();renderHard();renderResumen();}
+ else if(a==='who'){S.cierre.who=v;save();renderSalida();}
+ else if(a==='copy'){copyResumen();}
+ else if(a==='cotadd'){S.cotejo.push({name:'',c:['','','','']});save();renderCot();}
+ else if(a==='cotdel'){S.cotejo.splice(Number(b.dataset.i),1);save();renderCot();}
+ else if(a==='cot'){var r=S.cotejo[Number(b.dataset.i)],ci=Number(b.dataset.c);r.c[ci]=(r.c[ci]===v?'':v);save();renderCot();}
+ else if(a==='reset'){
+  if(!resetArm){resetArm=true;b.textContent='Confirmar: borrar todo en este dispositivo';clearTimeout(resetT);resetT=setTimeout(function(){resetArm=false;b.textContent='Reiniciar actividad';},4000);}
+  else{resetArm=false;b.textContent='Reiniciar actividad';running=null;S=defaults();save();renderAll();toast('Actividad reiniciada');window.scrollTo(0,0);}
+ }
+});
+function onInput(e){
+ var el=e.target,p=el.dataset&&el.dataset.bind;if(!p)return;
+ setPath(S,p,el.value);save();
+ renderChecks();renderResumen();renderSalidaChecks();
+ if(p.indexOf('names.')===0){renderRoles();
+  var w=S.cierre.who;$$('[data-act="who"]').forEach(function(bt){bt.textContent=nm(bt.dataset.v);});}
+ if(p==='grupo.n')renderMat();
+ if(p==='cierre.shared')renderResumen();
+}
+document.addEventListener('input',onInput);
+document.addEventListener('change',onInput);
+window.addEventListener('hashchange',function(){var h=location.hash.slice(1);if(h&&TABS.indexOf(h)>=0&&h!==S.tab)setTab(h);});
+
+function renderAll(){
+ applyBinds();renderTabs();renderClock();renderChips();renderRoles();renderTasks();renderMx();renderSim();renderChecks();
+ renderImp();renderAdj();renderShared();renderHard();renderSalida();renderResumen();renderMat();renderCot();
+ applyBinds();
+}
+var h0=location.hash.slice(1);if(TABS.indexOf(h0)>=0){S.tab=h0;if(PH[h0])S.clockPhase=h0;}
+renderAll();
+})();
+</script>
+
+</body></html>

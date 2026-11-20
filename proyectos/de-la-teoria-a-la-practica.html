@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Del aula al trabajo</title>
+<style>
+:root{--bg:#f5f2ea;--card:#fff;--ink:#1f2a37;--mut:#6b7280;--ac:#0f766e;--ac2:#e3f0ee;--or:#c2410c;--bd:#dcd6c8;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#171b21;--card:#212730;--ink:#eceff3;--mut:#9aa3b0;--ac:#5fc4b9;--ac2:#1d3330;--or:#f59e6b;--bd:#323a47;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#171b21;--card:#212730;--ink:#eceff3;--mut:#9aa3b0;--ac:#5fc4b9;--ac2:#1d3330;--or:#f59e6b;--bd:#323a47;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:680px;margin:0 auto;padding:16px}
+h1{font:700 1.4rem Georgia,serif;margin:4px 0}h2{font:700 1.3rem Georgia,serif;margin:0 0 4px}
+.kick{color:var(--or);font-weight:700;font-size:.85rem;margin:0}
+.sub{color:var(--mut);font-size:.9rem;margin:0 0 10px}
+.steps{display:flex;gap:6px;margin:12px 0}
+.steps button{flex:1;padding:8px 0;border:1px solid var(--bd);background:var(--card);color:var(--mut);border-radius:10px;font-weight:700}
+.steps .on{background:var(--ac);color:#fff;border-color:var(--ac)}.steps .done{color:var(--ac)}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:16px;margin-bottom:12px}
+.timer{display:flex;align-items:center;justify-content:space-between;background:var(--ac2);border-radius:12px;padding:8px 12px;margin-bottom:12px;gap:8px}
+.timer b{font-size:1.4rem;font-variant-numeric:tabular-nums}
+button.p{background:var(--ac);color:#fff;border:0;border-radius:10px;padding:10px 16px;font-size:1rem;font-weight:600}
+button.s{background:transparent;color:var(--ac);border:1px solid var(--ac);border-radius:10px;padding:8px 14px;font-size:.95rem}
+label{display:block;font-weight:700;margin:12px 0 2px;color:var(--ac)}
+label.o{color:var(--or)}
+textarea,input[type=text]{width:100%;padding:10px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit}
+textarea{min-height:72px;resize:vertical}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.chip{padding:8px 12px;border:1px solid var(--bd);border-radius:999px;background:var(--bg);color:var(--ink);font-size:.92rem}
+.chip.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+.cs{display:block;width:100%;text-align:left;padding:12px;margin:8px 0;border:1px solid var(--bd);border-radius:12px;background:var(--bg);color:var(--ink);font-size:1rem}
+.cs.on{border:2px solid var(--ac);background:var(--ac2)}
+.cs small{display:block;color:var(--or);font-weight:700}
+.case{background:var(--bg);border:1px solid var(--bd);border-radius:12px;padding:12px;margin:8px 0}
+.case ul{margin:6px 0 0;padding-left:20px}
+.q{background:#1f2a37;color:#fff;border-radius:10px;padding:10px 12px;margin-top:10px}
+.hint{color:var(--mut);font-size:.88rem;margin:0}
+.nav{display:flex;justify-content:space-between;gap:8px;margin:8px 0 24px}
+.rub label{font-weight:500;color:var(--ink);display:flex;gap:8px;align-items:flex-start;margin:8px 0}
+.rub select{margin-left:auto;background:var(--bg);color:var(--ink);border:1px solid var(--bd);border-radius:8px;padding:4px}
+.res{font-weight:700;margin-top:8px}.ok{color:var(--ac)}.no{color:var(--or)}
+.row{border-top:1px solid var(--bd);padding-top:8px;margin-top:10px}
+</style>
+</head>
+<body>
+<main>
+<h1>Del aula al trabajo</h1>
+<p class="sub">Psicología del Trabajo · Sesión de 35 min · Tus respuestas se guardan en este dispositivo</p>
+<div class="steps" id="steps"></div>
+<div class="timer"><span id="tl"></span><b id="tt"></b><button class="s" id="tb">Iniciar</button></div>
+<div id="view"></div>
+<div class="nav"><button class="s" id="prev">← Anterior</button><button class="p" id="next">Siguiente →</button></div>
+</main>
+<script>
+const MOM=[{n:"Saberes previos",t:300},{n:"Caso",t:300},{n:"Pareja",t:600},{n:"Contraste",t:600},{n:"Mi tarjeta",t:300}];
+const CONCEPTS=["Análisis de puesto","Reclutamiento y selección","Capacitación","Comunicación","Clima laboral","Ética","Confidencialidad","Experiencias previas"];
+const CASOS=[
+{t:"La vacante urgente",a:"Reclutamiento y selección",p:"Es tu primera semana de prácticas en Recursos Humanos de una empresa manufacturera. La coordinadora, que sale a una junta, te pide: “Necesito tres candidatos para operador de producción mañana temprano; filtra los currículums de la bolsa de trabajo”.",b:["No te dio el perfil del puesto ni los criterios de selección.","Una compañera te dice: “Aquí solo pasamos a los menores de 30 años”.","La coordinadora no contesta mensajes hasta la tarde."]},
+{t:"El puesto que nadie describe",a:"Análisis de puesto",p:"Te piden actualizar la descripción del puesto de “auxiliar administrativo” antes del viernes. El gerente te dice: “Solo copia lo que hace Laura, ella lleva ocho años aquí y sabe todo”.",b:["No existe una descripción anterior del puesto.","Observas que Laura hace tareas que parecen de otros puestos.","Nadie ha hablado con su jefe directo ni con otras personas en el mismo puesto."]},
+{t:"La inducción de mañana",a:"Capacitación",p:"Tu supervisora se enferma y te pide impartir mañana la inducción a 15 empleados nuevos. Te deja una presentación hecha por una practicante anterior y te dice: “Solo léela, ya está lista”.",b:["No sabes si se hizo una detección de necesidades de capacitación.","La presentación incluye un procedimiento de seguridad que no conoces.","No sabes si el contenido sigue vigente ni quién lo aprobó."]},
+{t:"El comunicado del cambio de horario",a:"Comunicación organizacional",p:"Un jefe de área te pide enviar hoy, por el grupo de WhatsApp de todo el personal, un aviso de cambio de horarios que él mismo redactó: “A partir del lunes nadie sale antes de las 7. Sin excepciones”.",b:["El personal ya está molesto por rumores de recortes.","No sabes si Recursos Humanos o la dirección aprobaron el cambio.","No existe un canal oficial definido para los comunicados."]},
+{t:"Las respuestas de la encuesta",a:"Clima laboral",p:"Aplicaste una encuesta de clima laboral y ya capturaste los resultados. Un jefe de área te pide: “Pásame las respuestas de mi equipo, quiero saber quién se está quejando”.",b:["A las personas se les dijo que la encuesta era anónima.","No sabes si existe una política de manejo de resultados.","Tu supervisora está de viaje y regresa hasta la próxima semana."]},
+{t:"Lo que me contó una colaboradora",a:"Ética y confidencialidad",p:"Una colaboradora te cuenta en confianza que atraviesa un problema de salud y te pide que su jefe no se entere. Esa tarde, el jefe te pregunta por qué ha faltado y te dice: “Necesito información para decidir si la reemplazo”.",b:["Su expediente está sobre tu escritorio.","No conoces la política de confidencialidad de la empresa.","No sabes quién puede autorizar que se comparta información personal."]}];
+const KEY="aula-trabajo-v2";
+let S={step:0,caso:-1,nombre:"",pareja:"",fecha:"",concepts:[],a1:"",hechos:"",supos:"",falta:"",pAccion:"",pDatos:"",pConc:"",pRiesgo:"",tab:["","","",""],coin:"",cambia:"",riesgoNuevo:"",e1:"",e2:"",e3:"",e4:"",r:[0,0,0,0]};
+try{const x=JSON.parse(localStorage.getItem(KEY)||"null");if(x)S=Object.assign(S,x)}catch(e){}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+let left=MOM[S.step].t,run=null;
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const ta=(k,l,h,o)=>`<label class="${o?"o":""}">${l}</label>${h?`<p class="hint">${h}</p>`:""}<textarea data-k="${k}">${esc(S[k])}</textarea>`;
+const caso=()=>S.caso<0?null:CASOS[S.caso];
+const casoBox=()=>{const c=caso();return c?`<div class="case"><b>${c.t}</b><p style="margin:6px 0 0">${c.p}</p><ul>${c.b.map(x=>`<li>${x}</li>`).join("")}</ul></div>`:`<p class="hint">Elige un caso en el paso 2.</p>`};
+const NN=()=>S.caso<0?"—":S.caso+1;
+const V=[
+()=>`<div class="card"><p class="kick">Momento 1 · Activación de saberes previos · 5 min</p><h2>¿Qué harías tú?</h2>
+<p>Imagina que en tus prácticas profesionales surge un problema laboral. ¿Qué conocimientos de tu carrera podrías usar para resolverlo?</p>
+<p class="hint">Aquí buscamos razonar y fundamentar cada decisión.</p>
+<div class="chips">${CONCEPTS.map(c=>`<button class="chip ${S.concepts.includes(c)?"on":""}" data-c="${c}">${c}</button>`).join("")}</div>
+${ta("a1","Tu respuesta","Piensa en algo que hayas vivido en la escuela o en un trabajo.")}</div>`,
+()=>`<div class="card"><p class="kick">Momento 2 · Tarjeta de identificación · 5 min</p><h2>Una decisión en el trabajo</h2>
+<p class="hint">Elige el caso que te toca (o el que indique el facilitador):</p>
+${CASOS.map((c,i)=>`<button class="cs ${S.caso===i?"on":""}" data-k2="${i}"><small>Caso ${i+1} · ${c.a}</small>${c.t}</button>`).join("")}
+${casoBox()}
+${caso()?`<div class="q">¿Qué harías primero? ¿Qué te falta saber o que alguien debe autorizar?</div>`:""}</div>
+${caso()?`<div class="card"><label>Nombre</label><input type="text" data-k="nombre" value="${esc(S.nombre)}">
+${ta("hechos","Hechos","Lo que sí sabemos con certeza.")}${ta("supos","Suposiciones","Lo que damos por cierto sin haberlo comprobado.",1)}${ta("falta","Información faltante","Lo que necesitamos saber o que alguien debe autorizar.")}</div>`:""}`,
+()=>`<div class="card"><p class="kick">Momento 3 · Trabajo en pareja · 10 min</p><h2>Decide y justifica</h2>
+<p class="sub">Caso ${NN()}</p>${casoBox()}
+<label>Integrantes de la pareja</label><input type="text" data-k="pareja" value="${esc(S.pareja)}">
+<p class="hint" style="margin-top:8px">Guía: ¿En qué concepto fundamentan la decisión? ¿Qué riesgo hay al actuar sin consultar?</p>
+${ta("pAccion","1. Acción inicial que proponemos","¿Qué haríamos primero?")}
+${ta("pDatos","2. Datos que verificaríamos","¿Qué información o autorización falta antes de actuar?")}
+${ta("pConc","3. Concepto que lo fundamenta","¿Qué teoría o contenido de la carrera respalda la decisión?",1)}
+${ta("pRiesgo","4. Riesgo de actuar sin consultar","¿Qué podría pasar si decidimos solos?",1)}</div>`,
+()=>`<div class="card"><p class="kick">Momento 4 · Cuadro para el pizarrón · 10 min</p><h2>¿Todos lo resolveríamos igual?</h2>
+<p class="hint">Anoten la propuesta de cada pareja que presente.</p>
+${[0,1,2,3].map(i=>`<div class="row"><b>Pareja ${i+1}</b>
+<label>Acción propuesta</label><textarea data-t="${i}" data-f="0" style="min-height:52px">${esc(S.tab[i].split("␟")[0]||"")}</textarea>
+<label>Concepto en que se basa</label><textarea data-t="${i}" data-f="1" style="min-height:52px">${esc(S.tab[i].split("␟")[1]||"")}</textarea>
+<label class="o">Riesgo identificado</label><textarea data-t="${i}" data-f="2" style="min-height:52px">${esc(S.tab[i].split("␟")[2]||"")}</textarea></div>`).join("")}</div>
+<div class="card">${ta("coin","¿Qué coincide entre las propuestas?")}${ta("cambia","¿Qué cambia y por qué?")}${ta("riesgoNuevo","¿Qué riesgo no habíamos visto?","",1)}</div>`,
+()=>{const L=["Conocimiento previo aplicable","Decisión propuesta y justificada","Duda o límite (información faltante)","Fuente u orientación pertinente"],N=["Logrado","Parcial","Por fortalecer"];
+const lg=S.r.filter(x=>x===1).length,ok=lg>=3&&!S.r.some(x=>!x);
+return `<div class="card"><p class="kick">Momento 5 · Tarjeta individual de evidencia · 5 min</p><h2>Mi plan de acción</h2>
+<p class="sub">Caso ${NN()}${caso()?" · "+caso().t:""}</p>
+<label>Nombre</label><input type="text" data-k="nombre" value="${esc(S.nombre)}">
+<label>Fecha</label><input type="text" data-k="fecha" value="${esc(S.fecha)}" placeholder="dd/mm/aaaa">
+${ta("e1","1. Conocimiento previo aplicable","Concepto o teoría de la Licenciatura en Psicología que uso.")}
+${ta("e2","2. Decisión propuesta y justificada","¿Qué haría primero y por qué?")}
+${ta("e3","3. Duda o límite","¿Qué información o autorización me falta?",1)}
+${ta("e4","4. Fuente u orientación pertinente","¿A quién o qué consultaría antes de actuar?",1)}</div>
+<div class="card rub"><h2 style="font-size:1.1rem">Autoevaluación</h2><p class="hint">Valora cada elemento de tu tarjeta.</p>
+${L.map((l,i)=>`<label>${l}<select data-r="${i}"><option value="0">—</option>${N.map((n,j)=>`<option value="${j+1}" ${S.r[i]===j+1?"selected":""}>${n}</option>`).join("")}</select></label>`).join("")}
+<div class="res ${ok?"ok":"no"}">${ok?"Suficiente: "+lg+" de 4 en Logrado":"Meta: Logrado en al menos 3 criterios y ninguno en blanco ("+lg+" por ahora)"}</div></div>
+<div class="card"><button class="p" id="cp">Copiar mi tarjeta</button><textarea id="out" readonly style="margin-top:10px;display:none;min-height:180px"></textarea></div>`}];
+function render(){
+ $("steps").innerHTML=MOM.map((m,i)=>`<button class="${i===S.step?"on":i<S.step?"done":""}" data-s="${i}" title="${m.n}">${i<S.step?"✓":i+1}</button>`).join("");
+ $("tl").textContent=MOM[S.step].n;$("view").innerHTML=V[S.step]();
+ $("prev").style.visibility=S.step?"visible":"hidden";$("next").style.visibility=S.step<4?"visible":"hidden";tick()}
+function tick(){const m=String(Math.floor(left/60)).padStart(2,"0"),s=String(left%60).padStart(2,"0");$("tt").textContent=m+":"+s;$("tb").textContent=run?"Pausar":"Iniciar"}
+function go(n){S.step=n;save();clearInterval(run);run=null;left=MOM[n].t;render();window.scrollTo(0,0)}
+$("tb").onclick=()=>{if(run){clearInterval(run);run=null}else run=setInterval(()=>{if(left>0)left--;else{clearInterval(run);run=null}tick()},1000);tick()};
+$("prev").onclick=()=>go(S.step-1);$("next").onclick=()=>go(S.step+1);
+document.addEventListener("click",e=>{const t=e.target.closest("button");if(!t)return;
+ if(t.dataset.s!==undefined)go(+t.dataset.s);
+ if(t.dataset.k2!==undefined){S.caso=+t.dataset.k2;save();render()}
+ if(t.dataset.c){const c=t.dataset.c,i=S.concepts.indexOf(c);i<0?S.concepts.push(c):S.concepts.splice(i,1);save();t.classList.toggle("on")}
+ if(t.id==="cp"){const o=$("out");o.value="MI PLAN DE ACCIÓN\nCaso "+NN()+(caso()?" · "+caso().t:"")+"\nNombre: "+S.nombre+"  Fecha: "+S.fecha+"\n\n1. Conocimiento previo aplicable: "+S.e1+"\n2. Decisión propuesta y justificada: "+S.e2+"\n3. Duda o límite: "+S.e3+"\n4. Fuente u orientación pertinente: "+S.e4;o.style.display="block";o.select();try{document.execCommand("copy");t.textContent="Copiado ✓"}catch(x){t.textContent="Selecciona y copia el texto"}}});
+document.addEventListener("input",e=>{const d=e.target.dataset;if(d.k){S[d.k]=e.target.value;save()}
+ if(d.t!==undefined){const p=S.tab[+d.t].split("␟");p[+d.f]=e.target.value;S.tab[+d.t]=[p[0]||"",p[1]||"",p[2]||""].join("␟");save()}});
+document.addEventListener("change",e=>{if(e.target.dataset.r!==undefined){S.r[+e.target.dataset.r]=+e.target.value;save();render()}});
+render();
+</script>
+</body>
+</html>
